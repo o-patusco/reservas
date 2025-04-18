@@ -305,6 +305,21 @@
     loadBookings(dateInput.value);
     updateTimeLine();
     setInterval(updateTimeLine, 60000);
+
+    // Enable booking removal by clicking on booked cells
+    document.querySelector('#bookingTable').addEventListener('click', async function (e) {
+      const cell = e.target;
+      if (cell.tagName === 'TD' && cell.classList.contains('booked')) {
+        const table = cell.closest('tr').getAttribute('data-table');
+        const time = cell.getAttribute('data-time');
+        const confirmDelete = confirm(`Remover reserva da mesa ${table} às ${time}?`);
+        if (confirmDelete) {
+          cell.textContent = '';
+          cell.classList.remove('booked');
+          await saveBookings(dateInput.value);
+        }
+      }
+    });
   </script>
 </body>
 </html>
