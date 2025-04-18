@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestão de Reservas</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .booking-section {
+      width: 90%;
+      max-width: 1000px;
+      background-color: rgba(255, 255, 255, 0.6);
+      margin: 100px auto;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      font-family: 'Barlow Condensed', sans-serif;
+      color: #4A2E1D;
+    }
+    form label {
+      display: inline-block;
+      margin: 10px;
+      font-weight: 600;
+      font-size: 18px;
+    }
+    form select, form input[type="text"], form input[type="date"] {
+      padding: 8px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-family: 'Noto Sans', sans-serif;
+    }
+    form button {
+      background-color: rgba(0, 0, 0, 0.5);
+      color: #ffffff;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 18px;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: all 0.3s ease;
+    }
+    form button:hover {
+      background-color: #ede0c4;
+      color: rgb(30, 30, 30);
+    }
+    table th, table td {
+      border: 1px solid #ddd;
+      font-family: 'Noto Sans', sans-serif;
+      font-size: 14px;
+    }
+    th {
+      background-color: #4A2E1D;
+      color: white;
+    }
+    td.booked {
+      background-color: #f44336;
+      color: white;
+      font-weight: bold;
+    }
+    td.break, th.break {
+      background-color: #f1f1f1;
+      color: #aaa;
+      font-style: italic;
+    }
+    .current-time-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background-color: red;
+      z-index: 2;
+    }
+  </style>
+</head>
+<body>
+  <div class="booking-section">
+    <h1>Gestão de Reservas</h1>
+    <form id="bookingForm">
+      <label> Data:
+        <input type="date" id="dateInput" required />
+      </label>
+      <label> Mesa:
+        <select id="tableInput"></select>
+      </label>
+      <label> Início:
+        <select id="timeInput"></select>
+      </label>
+      <label> Fim (opcional):
+        <select id="endTimeInput"></select>
+      </label>
+      <label> Nome:
+        <input type="text" id="nameInput" required />
+      </label>
+      <br>
+      <button type="submit">Adicionar Reserva</button>
+    </form>
+    <h2>Reservas do Dia</h2>
+    <div style="position: relative; overflow-x: auto;">
+      <div id="timeLine" class="current-time-line"></div>
+      <table id="bookingTable">
+        <thead>
+          <tr>
+            <th>Mesa / Hora</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const apiUrl = 'https://reservas.restaurante-patusco.workers.dev/'; // replace with your deployed Cloudflare Worker URL
+
+    const timeSlots = [];
+    function pushSlot(hour, minute) {
+      timeSlots.push(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
+    }
+    for (let hour = 12; hour < 15; hour++) {
+      pushSlot(hour, 0);
+      pushSlot(hour, 30);
+    }
+    pushSlot(15, 0);
+    timeSlots.push("BREAK");
+    for (let hour = 19; hour < 22; hour++) {
+      pushSlot(hour, 30);
+      pushSlot(hour + 1, 0);
+    }
+    pushSlot(22, 30);
+
+    const tables = ["M1", "M2", "M3", "M4", "M5", "M6", "P1", "P2", "B1", "B2", "B3", "B4", "B5", "B6"];
+
+    const theadRow = document.querySelector('#bookingTable thead tr');
+    timeSlots.forEach(time => {
+      const th = document.createElement('th');
+      th.textContent = time === "BREAK" ? "" : time;
+      if (time === "BREAK") th.classList.add("break");
+      theadRow.appendChild(th);
+    });
+
+    const tbody = document.querySelector('#bookingTable tbody');
+    tables.forEach(table => {
+      const row = document.createElement('tr');
+      row.setAttribute('data-table', table);
+      const th = document.createElement('th');
+      th.textContent = table;
+      row.appendChild(th);
+      timeSlots.forEach(time => {
+        const td = document.createElement('td');
+        if (time !== "BREAK") td.setAttribute('data-time', time);
+        else td.classList.add('break');
+        row.appendChild(td);
+      });
+      tbody.appendChild(row);
+    });
+
+    const dateInput = document.getElementById('dateInput');
+    const tableInput = document.getElementById('tableInput');
+    const timeInput = document.getElementById('timeInput');
+    const endTimeInput = document.getElementById('endTimeInput');
+
+    tables.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t;
+      opt.textContent = t;
+      tableInput.appendChild(opt);
+    });
+    timeSlots.forEach(time => {
+      if (time !== "BREAK") {
+        const opt1 = document.createElement('option');
+        opt1.value = time;
+        opt1.textContent = time;
+        timeInput.appendChild(opt1);
+
+        const opt2 = document.createElement('option');
+        opt2.value = time;
+        opt2.textContent = time;
+        endTimeInput.appendChild(opt2);
+      }
+    });
+    endTimeInput.value = "22:30";
+
+    async function loadBookings(date) {
+      const res = await fetch(`${apiUrl}?date=${date}`);
+      const data = await res.json();
+      for (const table in data) {
+        for (const time in data[table]) {
+          const cell = document.querySelector(`tr[data-table='${table}'] td[data-time='${time}']`);
+          if (cell) {
+            cell.textContent = data[table][time];
+            cell.classList.add('booked');
+          }
+        }
+      }
+    }
+
+    async function saveBookings(date) {
+      const bookings = {};
+      tables.forEach(table => {
+        bookings[table] = {};
+        timeSlots.forEach(time => {
+          if (time !== "BREAK") {
+            const cell = document.querySelector(`tr[data-table='${table}'] td[data-time='${time}']`);
+            if (cell && cell.textContent) {
+              bookings[table][time] = cell.textContent;
+            }
+          }
+        });
+      });
+      await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date, bookings })
+      });
+    }
+
+    document.getElementById('bookingForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const date = dateInput.value;
+      const table = tableInput.value;
+      const startTime = timeInput.value;
+      const endTime = endTimeInput.value || "22:30";
+      const name = document.getElementById('nameInput').value;
+      const startIndex = timeSlots.indexOf(startTime);
+      const endIndex = timeSlots.indexOf(endTime);
+      if (startIndex === -1 || endIndex === -1 || startIndex >= endIndex) {
+        alert("Intervalo inválido");
+        return;
+      }
+      const row = document.querySelector(`tr[data-table='${table}']`);
+      for (let i = startIndex; i < endIndex; i++) {
+        const cell = row.querySelector(`td[data-time='${timeSlots[i]}']`);
+        if (!cell || cell.textContent !== '') {
+          alert('Horário já reservado ou inválido!');
+          return;
+        }
+      }
+      for (let i = startIndex; i < endIndex; i++) {
+        const cell = row.querySelector(`td[data-time='${timeSlots[i]}']`);
+        if (cell) {
+          cell.textContent = name;
+          cell.classList.add('booked');
+        }
+      }
+      await saveBookings(date);
+      document.getElementById('bookingForm').reset();
+      endTimeInput.value = "22:30";
+    });
+
+    dateInput.addEventListener('change', () => {
+      document.querySelectorAll('td.booked').forEach(td => {
+        td.textContent = '';
+        td.classList.remove('booked');
+      });
+      loadBookings(dateInput.value);
+    });
+
+    // Default date: today
+    dateInput.valueAsDate = new Date();
+    loadBookings(dateInput.value);
+  </script>
+</body>
+</html>
