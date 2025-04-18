@@ -50,6 +50,7 @@
       border: 1px solid #ddd;
       font-family: 'Noto Sans', sans-serif;
       font-size: 14px;
+      position: relative;
     }
     th {
       background-color: #4A2E1D;
@@ -61,9 +62,15 @@
       font-weight: bold;
     }
     td.break, th.break {
-      background-color: #f1f1f1;
-      color: #aaa;
+      background-color: #d3d3d3;
+      color: #666;
       font-style: italic;
+      min-width: 100px;
+    }
+    .booking-wrapper {
+      position: relative;
+      overflow-x: auto;
+      min-height: 300px;
     }
     .current-time-line {
       position: absolute;
@@ -71,7 +78,8 @@
       bottom: 0;
       width: 2px;
       background-color: red;
-      z-index: 2;
+      z-index: 10;
+      pointer-events: none;
     }
   </style>
 </head>
@@ -98,7 +106,7 @@
       <button type="submit">Adicionar Reserva</button>
     </form>
     <h2>Reservas do Dia</h2>
-    <div style="position: relative; overflow-x: auto;">
+    <div class="booking-wrapper">
       <div id="timeLine" class="current-time-line"></div>
       <table id="bookingTable">
         <thead>
@@ -112,7 +120,7 @@
   </div>
 
   <script>
-    const apiUrl = 'https://reservas.restaurante-patusco.workers.dev/'; 
+    const apiUrl = 'https://reservas.restaurante-patusco.workers.dev';
 
     const timeSlots = [];
     function pushSlot(hour, minute) {
@@ -135,8 +143,11 @@
     const theadRow = document.querySelector('#bookingTable thead tr');
     timeSlots.forEach(time => {
       const th = document.createElement('th');
-      th.textContent = time === "BREAK" ? "" : time;
-      if (time === "BREAK") th.classList.add("break");
+      th.textContent = time === "BREAK" ? "Intervalo" : time;
+      if (time === "BREAK") {
+        th.classList.add("break");
+        th.setAttribute('data-time', 'BREAK');
+      }
       theadRow.appendChild(th);
     });
 
@@ -149,8 +160,12 @@
       row.appendChild(th);
       timeSlots.forEach(time => {
         const td = document.createElement('td');
-        if (time !== "BREAK") td.setAttribute('data-time', time);
-        else td.classList.add('break');
+        if (time !== "BREAK") {
+          td.setAttribute('data-time', time);
+        } else {
+          td.classList.add('break');
+          td.setAttribute('data-time', 'BREAK');
+        }
         row.appendChild(td);
       });
       tbody.appendChild(row);
@@ -257,9 +272,39 @@
       loadBookings(dateInput.value);
     });
 
-    // Default date: today
+    function updateTimeLine() {
+      const table = document.getElementById('bookingTable');
+      const now = new Date();
+      let hours = now.getHours();
+      let minutes = now.getMinutes();
+      let currentTimeStr = `${hours.toString().padStart(2, '0')}:${minutes < 30 ? '00' : '30'}`;
+
+      let index = timeSlots.indexOf(currentTimeStr);
+
+      if (index === -1 && hours >= 15 && hours < 19) {
+        index = timeSlots.indexOf("BREAK");
+        currentTimeStr = "BREAK";
+      }
+
+      if (index === -1) {
+        document.getElementById('timeLine').style.display = 'none';
+        return;
+      }
+
+      const ths = table.querySelectorAll('thead th');
+      const refCell = ths[index + 1];
+      if (!refCell) return;
+
+      const left = refCell.offsetLeft + refCell.offsetWidth / 2;
+      const timeLine = document.getElementById('timeLine');
+      timeLine.style.left = `${left}px`;
+      timeLine.style.display = 'block';
+    }
+
     dateInput.valueAsDate = new Date();
     loadBookings(dateInput.value);
+    updateTimeLine();
+    setInterval(updateTimeLine, 60000);
   </script>
 </body>
 </html>
