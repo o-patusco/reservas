@@ -268,7 +268,7 @@
       const displayText = `${name} (${people}p)`;
       const startIndex = timeSlots.indexOf(startTime);
       const endIndex = timeSlots.indexOf(endTime);
-      if (startIndex === -1 || endIndex === -1 || startIndex >= endIndex) {
+      if (startIndex === -1 || endIndex === -1 || startIndex > endIndex) {
         alert("Intervalo inválido");
         return;
       }
