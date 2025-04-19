@@ -131,15 +131,19 @@
     }
     for (let hour = 12; hour < 15; hour++) {
       pushSlot(hour, 0);
-      pushSlot(hour, 30);
+      if (hour < 14) pushSlot(hour, 30);
     }
     pushSlot(15, 0);
     timeSlots.push("BREAK");
     for (let hour = 19; hour < 22; hour++) {
-      pushSlot(hour, 30);
-      pushSlot(hour + 1, 0);
+      if (hour === 19) pushSlot(hour, 30);
+      else if (hour < 22) {
+        pushSlot(hour, 0);
+        pushSlot(hour, 30);
+      } else {
+        pushSlot(22, 0); // only up to 22:00
+      }
     }
-    pushSlot(22, 30);
 
     const tables = ["M1", "M2", "M3", "M4", "M5", "M6", "P1", "P2", "B1", "B2", "B3", "B4", "B5", "B6"];
 
