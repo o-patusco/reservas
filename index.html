@@ -102,6 +102,9 @@
       <label> Nome:
         <input type="text" id="nameInput" required />
       </label>
+      <label> Nº pessoas:
+        <input type="number" id="peopleInput" min="1" required />
+      </label>
       <br>
       <button type="submit">Adicionar Reserva</button>
     </form>
@@ -237,7 +240,9 @@
       const table = tableInput.value;
       const startTime = timeInput.value;
       const endTime = endTimeInput.value || "22:30";
-      const name = document.getElementById('nameInput').value;
+      const name = document.getElementById('nameInput').value.trim();
+      const people = document.getElementById('peopleInput').value;
+      const displayText = `${name} (${people}p)`;
       const startIndex = timeSlots.indexOf(startTime);
       const endIndex = timeSlots.indexOf(endTime);
       if (startIndex === -1 || endIndex === -1 || startIndex >= endIndex) {
@@ -255,7 +260,7 @@
       for (let i = startIndex; i < endIndex; i++) {
         const cell = row.querySelector(`td[data-time='${timeSlots[i]}']`);
         if (cell) {
-          cell.textContent = name;
+          cell.textContent = displayText;
           cell.classList.add('booked');
         }
       }
