@@ -74,7 +74,7 @@
       color: white;
       font-weight: bold;
     }
-    td.break, th.break {
+    td.Intervalo, th.break {
       background-color: #d3d3d3;
       color: #666;
       font-style: italic;
@@ -153,7 +153,7 @@
       pushSlot(hour, 0);
       pushSlot(hour, 30);
     }
-    timeSlots.push("BREAK");
+    timeSlots.push("Fim do almoço");
     for (let hour = 19; hour < 22; hour++) {
       if (hour === 19) pushSlot(hour, 30);
       else if (hour < 22) {
@@ -169,10 +169,10 @@
     const theadRow = document.querySelector('#bookingTable thead tr');
     timeSlots.forEach(time => {
       const th = document.createElement('th');
-      th.textContent = time === "BREAK" ? "Intervalo" : time;
-      if (time === "BREAK") {
+      th.textContent = time === "Fim do almoço" ? "Fim do almoço" : time;
+      if (time === "Fim do almoço") {
         th.classList.add("break");
-        th.setAttribute('data-time', 'BREAK');
+        th.setAttribute('data-time', 'Fim do almoço');
       }
       theadRow.appendChild(th);
     });
@@ -186,11 +186,11 @@
       row.appendChild(th);
       timeSlots.forEach(time => {
         const td = document.createElement('td');
-        if (time !== "BREAK") {
+        if (time !== "Fim do almoço") {
           td.setAttribute('data-time', time);
         } else {
           td.classList.add('break');
-          td.setAttribute('data-time', 'BREAK');
+          td.setAttribute('data-time', 'Fim do almoço');
         }
         row.appendChild(td);
       });
@@ -208,17 +208,21 @@
       opt.textContent = t;
       tableInput.appendChild(opt);
     });
-    timeSlots.forEach(time => {
-      if (time !== "BREAK") {
+    timeSlots.forEach((time, i) => {
+      if (time !== "Fim do almoço") {
         const opt1 = document.createElement('option');
         opt1.value = time;
         opt1.textContent = time;
         timeInput.appendChild(opt1);
 
-        const opt2 = document.createElement('option');
-        opt2.value = time;
-        opt2.textContent = time;
-        endTimeInput.appendChild(opt2);
+        // For endTimeInput, also include the next slot even if it's "15:00"
+        const nextTime = timeSlots[i + 1];
+        if (nextTime !== undefined) {
+          const opt2 = document.createElement('option');
+          opt2.value = nextTime;
+          opt2.textContent = nextTime;
+          endTimeInput.appendChild(opt2);
+        }
       }
     });
     endTimeInput.value = "22:30";
@@ -242,7 +246,7 @@
       tables.forEach(table => {
         bookings[table] = {};
         timeSlots.forEach(time => {
-          if (time !== "BREAK") {
+          if (time !== "Fim do almoço") {
             const cell = document.querySelector(`tr[data-table='${table}'] td[data-time='${time}']`);
             if (cell && cell.textContent) {
               bookings[table][time] = cell.textContent;
@@ -310,8 +314,8 @@
       let index = timeSlots.indexOf(currentTimeStr);
 
       if (index === -1 && hours >= 15 && hours < 19) {
-        index = timeSlots.indexOf("BREAK");
-        currentTimeStr = "BREAK";
+        index = timeSlots.indexOf("Fim do almoço");
+        currentTimeStr = "Fim do almoço";
       }
 
       if (index === -1) {
