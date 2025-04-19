@@ -47,17 +47,30 @@
       color: rgb(30, 30, 30);
     }
     table th, table td {
-      border: 1px solid #ddd;
+      border-top: none;
       font-family: 'Noto Sans', sans-serif;
       font-size: 14px;
       position: relative;
+      padding: 2px;
+      text-align: center;
     }
+    table td::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 1px;
+      background-color: #cdcdcd; /* ← horizontal line color */
+    }
+
+
     th {
       background-color: #4A2E1D;
       color: white;
     }
     td.booked {
-      background-color: #f44336;
+      background-color: #c86c66;
       color: white;
       font-weight: bold;
     }
@@ -72,6 +85,13 @@
       overflow-x: auto;
       min-height: 300px;
     }
+
+    #bookingTable {
+      border-collapse: collapse;
+      border-spacing: 0;
+      width: 100%;
+    }
+
     .current-time-line {
       position: absolute;
       top: 0;
@@ -131,9 +151,8 @@
     }
     for (let hour = 12; hour < 15; hour++) {
       pushSlot(hour, 0);
-      if (hour < 14) pushSlot(hour, 30);
+      pushSlot(hour, 30);
     }
-    pushSlot(15, 0);
     timeSlots.push("BREAK");
     for (let hour = 19; hour < 22; hour++) {
       if (hour === 19) pushSlot(hour, 30);
