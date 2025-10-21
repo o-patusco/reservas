@@ -125,6 +125,12 @@
       <label> Nº pessoas:
         <input type="number" id="peopleInput" min="1" required />
       </label>
+      <label> Telefone 📞
+        <input type="number" id="phoneNumber" min="1" required />
+      </label>
+      <label> Comentários
+        <input type="text" id="comments" min="1" required />
+      </label>
       <br>
       <button type="submit">Adicionar Reserva</button>
     </form>
@@ -154,13 +160,13 @@
       pushSlot(hour, 30);
     }
     timeSlots.push("Fim do almoço");
-    for (let hour = 19; hour < 22; hour++) {
+    for (let hour = 19; hour < 23; hour++) {
       if (hour === 19) pushSlot(hour, 30);
-      else if (hour < 22) {
+      else if (hour < 23) {
         pushSlot(hour, 0);
         pushSlot(hour, 30);
       } else {
-        pushSlot(22, 0); // only up to 22:00
+        pushSlot(23, 0); 
       }
     }
 
@@ -263,20 +269,37 @@
 
     document.getElementById('bookingForm').addEventListener('submit', async function(e) {
       e.preventDefault();
+
       const date = dateInput.value;
       const table = tableInput.value;
       const startTime = timeInput.value;
-      const endTime = endTimeInput.value || "22:30";
+      const endTimeRaw = endTimeInput.value;      // may be ""
+      const DEFAULT_END = "22:00";
+
       const name = document.getElementById('nameInput').value.trim();
       const people = document.getElementById('peopleInput').value;
       const displayText = `${name} (${people}p)`;
+
       const startIndex = timeSlots.indexOf(startTime);
-      const endIndex = timeSlots.indexOf(endTime);
-      if (startIndex === -1 || endIndex === -1 || startIndex > endIndex) {
+
+      // compute endIndex with default logic
+      let endIndex;
+      if (!endTimeRaw) {
+        // default to 22:00, but ensure at least one slot after start
+        const defaultIdx = timeSlots.indexOf(DEFAULT_END);
+        endIndex = Math.max(defaultIdx, startIndex + 1);
+      } else {
+        endIndex = timeSlots.indexOf(endTimeRaw);
+      }
+
+      if (startIndex === -1 || endIndex === -1 || startIndex >= endIndex) {
         alert("Intervalo inválido");
         return;
       }
+
       const row = document.querySelector(`tr[data-table='${table}']`);
+
+      // check availability
       for (let i = startIndex; i < endIndex; i++) {
         const cell = row.querySelector(`td[data-time='${timeSlots[i]}']`);
         if (!cell || cell.textContent !== '') {
@@ -284,6 +307,8 @@
           return;
         }
       }
+
+      // write booking
       for (let i = startIndex; i < endIndex; i++) {
         const cell = row.querySelector(`td[data-time='${timeSlots[i]}']`);
         if (cell) {
@@ -291,9 +316,9 @@
           cell.classList.add('booked');
         }
       }
+
       await saveBookings(date);
-      document.getElementById('bookingForm').reset();
-      endTimeInput.value = "22:30";
+      document.getElementById('bookingForm').reset(); // leaves end time empty
     });
 
     dateInput.addEventListener('change', () => {
