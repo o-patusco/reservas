@@ -101,9 +101,60 @@
       z-index: 10;
       pointer-events: none;
     }
+
+    .modal.hidden { display: none; }
+    .modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,.35);
+      display: flex; align-items: center; justify-content: center; z-index: 1000;
+    }
+    .modal-card {
+      background: #fff; border-radius: 12px; padding: 16px; width: 340px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.2); color:#4A2E1D; font-family:'Noto Sans',sans-serif;
+    }
+    .modal-card h3 { margin-top:0; font-family:'Barlow Condensed',sans-serif; }
+    .modal-card label { display:block; margin:10px 0 6px; font-weight:600; }
+    .modal-card input { width:100%; padding:8px; border:1px solid #ccc; border-radius:8px; }
+    .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
+    .modal-actions .secondary { background:#eee; color:#333; }
+    .modal-actions .danger { background:#c86c66; color:#fff; }
+    .modal-actions button {
+      background: rgba(0,0,0,.6); color:#fff; border:none; padding:8px 12px; border-radius:10px; cursor:pointer;
+    }
+    .modal-actions button:hover { opacity:.9; }
+
+
+
   </style>
 </head>
 <body>
+  <div id="editModal" class="modal hidden">
+    <div class="modal-card">
+      <h3>Editar reserva <span id="editWhen"></span></h3>
+
+      <label>Nome
+        <input type="text" id="editName">
+      </label>
+
+      <label>Nº pessoas
+        <input type="number" id="editPeople" min="1">
+      </label>
+
+      <label>Telefone
+        <input type="text" id="editPhone">
+      </label>
+
+      <label>Comentários
+        <input type="text" id="editComments">
+      </label>
+
+      <div class="modal-actions">
+        <button id="editSaveBtn">Guardar</button>
+        <button id="editCancelBtn" class="secondary">Cancelar</button>
+        <button id="editDeleteBtn" class="danger">Remover</button>
+      </div>
+    </div>
+  </div>
+
   <div class="booking-section">
     <h1>Gestão de Reservas</h1>
     <form id="bookingForm">
@@ -116,7 +167,7 @@
       <label> Início:
         <select id="timeInput"></select>
       </label>
-      <label> Fim (opcional):
+      <label> Fim:
         <select id="endTimeInput"></select>
       </label>
       <label> Nome:
@@ -239,10 +290,22 @@
       for (const table in data) {
         for (const time in data[table]) {
           const cell = document.querySelector(`tr[data-table='${table}'] td[data-time='${time}']`);
-          if (cell) {
-            cell.textContent = data[table][time];
-            cell.classList.add('booked');
+          if (!cell) continue;
+
+          let label = data[table][time];
+          let details = null;
+          try {
+            details = JSON.parse(label); // if it’s JSON, this succeeds
+          } catch (_) { /* keep as text */ }
+
+          if (details) {
+            cell.textContent = `${details.name} (${details.people}p)`;
+            cell.dataset.booking = JSON.stringify(details);
+          } else {
+            cell.textContent = label; // legacy
+            delete cell.dataset.booking;
           }
+          cell.classList.add('booked');
         }
       }
     }
@@ -254,8 +317,8 @@
         timeSlots.forEach(time => {
           if (time !== "Fim do almoço") {
             const cell = document.querySelector(`tr[data-table='${table}'] td[data-time='${time}']`);
-            if (cell && cell.textContent) {
-              bookings[table][time] = cell.textContent;
+            if (cell && (cell.dataset.booking || cell.textContent)) {
+              bookings[table][time] = cell.dataset.booking || cell.textContent; // JSON or legacy text
             }
           }
         });
@@ -278,14 +341,14 @@
 
       const name = document.getElementById('nameInput').value.trim();
       const people = document.getElementById('peopleInput').value;
-      const displayText = `${name} (${people}p)`;
+      const phone = document.getElementById('phoneNumber').value.trim();
+      const comments = document.getElementById('comments').value.trim();
 
+      const displayText = `${name} (${people}p)`;
       const startIndex = timeSlots.indexOf(startTime);
 
-      // compute endIndex with default logic
       let endIndex;
       if (!endTimeRaw) {
-        // default to 22:00, but ensure at least one slot after start
         const defaultIdx = timeSlots.indexOf(DEFAULT_END);
         endIndex = Math.max(defaultIdx, startIndex + 1);
       } else {
@@ -299,7 +362,7 @@
 
       const row = document.querySelector(`tr[data-table='${table}']`);
 
-      // check availability
+      // availability check
       for (let i = startIndex; i < endIndex; i++) {
         const cell = row.querySelector(`td[data-time='${timeSlots[i]}']`);
         if (!cell || cell.textContent !== '') {
@@ -308,19 +371,25 @@
         }
       }
 
-      // write booking
+      const bookingObj = { name, people: Number(people), phone, comments, table, startTime, endTime: timeSlots[endIndex] };
+
+      // write booking to all covered cells
       for (let i = startIndex; i < endIndex; i++) {
         const cell = row.querySelector(`td[data-time='${timeSlots[i]}']`);
         if (cell) {
-          cell.textContent = displayText;
+          cell.textContent = displayText;                     // what you see in the grid
           cell.classList.add('booked');
+          cell.dataset.booking = JSON.stringify(bookingObj);  // full details stored here
         }
       }
 
       await saveBookings(date);
-      document.getElementById('bookingForm').reset(); // leaves end time empty
+      document.getElementById('bookingForm').reset();
     });
 
+
+
+    
     dateInput.addEventListener('change', () => {
       document.querySelectorAll('td.booked').forEach(td => {
         td.textContent = '';
@@ -364,19 +433,115 @@
     setInterval(updateTimeLine, 60000);
 
     // Enable booking removal by clicking on booked cells
-    document.querySelector('#bookingTable').addEventListener('click', async function (e) {
+    const modal = document.getElementById('editModal');
+    const editWhen = document.getElementById('editWhen');
+    const editName = document.getElementById('editName');
+    const editPeople = document.getElementById('editPeople');
+    const editPhone = document.getElementById('editPhone');
+    const editComments = document.getElementById('editComments');
+    const editSaveBtn = document.getElementById('editSaveBtn');
+    const editCancelBtn = document.getElementById('editCancelBtn');
+    const editDeleteBtn = document.getElementById('editDeleteBtn');
+
+    let editingCell = null; // keep track of which cell we're editing
+
+    function openModal() { modal.classList.remove('hidden'); }
+    function closeModal() { modal.classList.add('hidden'); editingCell = null; }
+
+    document.querySelector('#bookingTable').addEventListener('click', function (e) {
       const cell = e.target;
-      if (cell.tagName === 'TD' && cell.classList.contains('booked')) {
-        const table = cell.closest('tr').getAttribute('data-table');
-        const time = cell.getAttribute('data-time');
-        const confirmDelete = confirm(`Remover reserva da mesa ${table} às ${time}?`);
-        if (confirmDelete) {
-          cell.textContent = '';
-          cell.classList.remove('booked');
-          await saveBookings(dateInput.value);
-        }
+      if (!(cell.tagName === 'TD' && cell.classList.contains('booked'))) return;
+
+      editingCell = cell;
+      const table = cell.closest('tr').getAttribute('data-table');
+      const time = cell.getAttribute('data-time');
+      editWhen.textContent = `— Mesa ${table}, ${time}`;
+
+      let d = null;
+      if (cell.dataset.booking) {
+        try { d = JSON.parse(cell.dataset.booking); } catch(_) {}
       }
+
+      if (!d) {
+        // legacy / text-only booking — best effort prefill
+        d = { name: cell.textContent, people: '', phone: '', comments: '', table, startTime: time, endTime: time };
+      }
+
+      editName.value = d.name || '';
+      editPeople.value = d.people || '';
+      editPhone.value = d.phone || '';
+      editComments.value = d.comments || '';
+
+      openModal();
     });
-  </script>
+
+    // Save edits
+    editSaveBtn.addEventListener('click', async () => {
+      if (!editingCell) return;
+
+      const table = editingCell.closest('tr').getAttribute('data-table');
+      const time = editingCell.getAttribute('data-time');
+
+      // keep existing timing span (start/end) if present elsewhere in the span
+      let d = editingCell.dataset.booking ? JSON.parse(editingCell.dataset.booking) : {};
+      d = {
+        ...d,
+        table,
+        startTime: d.startTime || time,
+        endTime: d.endTime || time,
+        name: editName.value.trim(),
+        people: Number(editPeople.value || 1),
+        phone: editPhone.value.trim(),
+        comments: editComments.value.trim()
+      };
+
+      // update ALL contiguous cells of this reservation window
+      const startIdx = timeSlots.indexOf(d.startTime);
+      const endIdx = Math.max(timeSlots.indexOf(d.endTime), startIdx + 1);
+      const label = `${d.name} (${d.people}p)`;
+      const json = JSON.stringify(d);
+
+      const row = editingCell.closest('tr');
+      for (let i = startIdx; i < endIdx; i++) {
+        const c = row.querySelector(`td[data-time='${timeSlots[i]}']`);
+        if (!c) continue;
+        c.textContent = label;
+        c.classList.add('booked');
+        c.dataset.booking = json;
+      }
+
+      await saveBookings(dateInput.value);
+      closeModal();
+    });
+
+    // Delete booking (clears all cells in the block)
+    editDeleteBtn.addEventListener('click', async () => {
+      if (!editingCell) return;
+      const d = editingCell.dataset.booking ? JSON.parse(editingCell.dataset.booking) : null;
+      const row = editingCell.closest('tr');
+
+      if (d) {
+        const startIdx = timeSlots.indexOf(d.startTime);
+        const endIdx = Math.max(timeSlots.indexOf(d.endTime), startIdx + 1);
+        for (let i = startIdx; i < endIdx; i++) {
+          const c = row.querySelector(`td[data-time='${timeSlots[i]}']`);
+          if (!c) continue;
+          c.textContent = '';
+          c.classList.remove('booked');
+          delete c.dataset.booking;
+        }
+      } else {
+        editingCell.textContent = '';
+        editingCell.classList.remove('booked');
+        delete editingCell.dataset.booking;
+      }
+
+      await saveBookings(dateInput.value);
+      closeModal();
+    });
+
+    editCancelBtn.addEventListener('click', closeModal);
+    // also close when clicking outside the card
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });  </script>
 </body>
 </html>
