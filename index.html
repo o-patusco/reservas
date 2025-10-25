@@ -174,13 +174,13 @@
         <input type="text" id="nameInput" required />
       </label>
       <label> Nº pessoas:
-        <input type="number" id="peopleInput" min="1" />
+        <input type="number" id="peopleInput" min="1" required />
       </label>
       <label> Telefone 📞
-        <input type="number" id="phoneNumber"  />
+        <input type="number" id="phoneNumber" min="1" required />
       </label>
       <label> Comentários
-        <input type="text" id="comments"  />
+        <input type="text" id="comments" min="1" required />
       </label>
       <br>
       <button type="submit">Adicionar Reserva</button>
@@ -317,8 +317,8 @@
         timeSlots.forEach(time => {
           if (time !== "Fim do almoço") {
             const cell = document.querySelector(`tr[data-table='${table}'] td[data-time='${time}']`);
-            if (cell && (cell.dataset.booking || cell.textContent)) {
-              bookings[table][time] = cell.dataset.booking || cell.textContent; // JSON or legacy text
+            if (cell && cell.classList.contains('booked')) {  // ← stricter guard
+              bookings[table][time] = cell.dataset.booking || cell.textContent;
             }
           }
         });
@@ -391,9 +391,11 @@
 
     
     dateInput.addEventListener('change', () => {
-      document.querySelectorAll('td.booked').forEach(td => {
+      // clear everything, not only cells currently marked as booked
+      document.querySelectorAll('#bookingTable td').forEach(td => {
         td.textContent = '';
         td.classList.remove('booked');
+        delete td.dataset.booking;   // ← important
       });
       loadBookings(dateInput.value);
     });
