@@ -177,10 +177,10 @@
         <input type="number" id="peopleInput" min="1" required />
       </label>
       <label> Telefone 📞
-        <input type="number" id="phoneNumber" min="1" required />
+        <input type="number" id="phoneNumber" min="1" />
       </label>
       <label> Comentários
-        <input type="text" id="comments" min="1" required />
+        <input type="text" id="comments" min="1" />
       </label>
       <br>
       <button type="submit">Adicionar Reserva</button>
@@ -274,7 +274,7 @@
 
         // For endTimeInput, also include the next slot even if it's "15:00"
         const nextTime = timeSlots[i + 1];
-        if (nextTime !== undefined) {
+        if (nextTime !== undefined && nextTime !== "Fim do almoço") {
           const opt2 = document.createElement('option');
           opt2.value = nextTime;
           opt2.textContent = nextTime;
